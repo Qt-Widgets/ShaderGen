@@ -69,7 +69,7 @@ elseif (WIN32)
     set(RESOURCES ${RESOURCES} info.rc)
 endif ()
 
-add_executable (ShaderGen WIN32 MACOSX_BUNDLE ${HEADERS} ${SOURCES} ${RESOURCES})
+add_executable (ShaderGen ${HEADERS} ${SOURCES} ${RESOURCES})
 
 target_link_libraries(ShaderGen
     Qt5::Widgets
@@ -77,4 +77,40 @@ target_link_libraries(ShaderGen
     ${OPENGL_LIBRARIES}
 )
 
-install(TARGETS ShaderGen DESTINATION bin)
+# Install
+if (APPLE)
+    set_target_properties(ShaderGen PROPERTIES MACOSX_BUNDLE TRUE)
+    install(TARGETS ShaderGen BUNDLE DESTINATION ./)
+elseif (WIN32)
+    set_target_properties(ShaderGen PROPERTIES WIN32 TRUE)
+    set_target_properties(ShaderGen PROPERTIES LINK_FLAGS "/SUBSYSTEM:WINDOWS")
+    install(TARGETS ShaderGen RUNTIME DESTINATION ./)
+else()
+    # Assume linux
+    install(TARGETS ShaderGen DESTINATION bin)
+endif ()
+
+# Automatically deploy qt
+get_target_property(QT5_QMAKE_EXECUTABLE Qt5::qmake IMPORTED_LOCATION)
+get_filename_component(QT5_BIN_DIR ${QT5_QMAKE_EXECUTABLE} PATH)
+if (APPLE)
+    find_program(QT5_DEPLOYQT_EXECUTABLE macdeployqt HINTS "${QT5_BIN_DIR}")
+    add_custom_command(TARGET ShaderGen POST_BUILD
+           COMMAND ${QT5_DEPLOYQT_EXECUTABLE} $<TARGET_BUNDLE_DIR:ShaderGen>)
+elseif (WIN32)
+    find_program(QT5_DEPLOYQT_EXECUTABLE windeployqt HINTS "${QT5_BIN_DIR}")
+    add_custom_command(TARGET ShaderGen POST_BUILD
+           COMMAND ${QT5_DEPLOYQT_EXECUTABLE} $<TARGET_FILE:ShaderGen>)
+endif ()
+
+
+
+# Package builder
+set(CPACK_PACKAGE_NAME "ShaderGenSetup")
+set(CPACK_PACKAGE_VENDOR "mojocorp")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "GLSL ShaderGen")
+set(CPACK_PACKAGE_VERSION ${SHADERGEN_VERSION})
+set(CPACK_COMPONENTS_GROUPING "ALL_COMPONENTS_IN_ONE")
+set(CPACK_RESOURCE_FILE_LICENSE "${PROJECT_SOURCE_DIR}/License.txt")
+
+include(CPack)
